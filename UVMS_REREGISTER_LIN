@@ -1,0 +1,61 @@
+###=========================================================================
+#@(#) OBJECT:             Unregister node from current UVMS and register to new UVMS
+#@(#) OBJET:              Desenregistrer un noeud de l'UVMS actuel pour le reenregistrer sur un nouvel UVMS
+#@(#)
+#@(#) VERSION:            1.2.0
+#@(#)
+#@(#) AUTHOR:             Tricise Professional Services (DCT)
+#@(#) AUTEUR
+#@(#)
+#@(#) CREATION DATE:      2024/03/25
+#@(#) DATE DE CREATION
+#@(#)
+#@(#) MODIFICATIONS: 
+#@(#)   0.0.0 -> 1.0.0:   2024/03/25 -- Domenico Cotugno -- Created
+#@(#)   1.0.0 -> 1.1.0:   2024/03/13 -- Domenico Cotugno -- Added NUMPROC variable to create unique scripts
+#@(#)   1.1.0 -> 1.1.1:   2024/04/08 -- Domenico Cotugno -- Added labels and tags to unims register
+#@(#)   1.1.1 -> 1.2.0:   2024/05/23 -- Domenico Cotugno -- Check UVMS network availability
+#@(#)
+#@(#) VALIDATIONS:
+#@(#)   1.1.1:			  2024/04/09 -- Domenico Cotugno -- on-site with customer. Could use some checks and balances, like a verification that the remote mshost is accessible.
+#@(#)	1.2.0:			  2024/06/20 -- Domenico Cotugno -- on-site with customer.
+###=========================================================================
+
+# Check target UVMS availability
+exec 3<>/dev/tcp/$mshost/$msport
+if [ $? -eq 0 ]; then
+    echo "Port $msport on server $mshost is open. Continuing..."
+    exec 3<&-
+    exec 3>&-
+else
+    echo "Port $msport on server $mshost is not open. Please check network routing and firewalls before attempting again."
+    exit 1
+fi
+# Create unregister / register script
+echo "Creating reregister script"
+echo #! /bin/bash > "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo source $UNI_DIR_ROOT/unienv.ksh >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo mshost=$mshost >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo msport=$msport >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo login=$login >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo pwd=$pwd >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo label=$label >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo tags=$tags >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo UNI_DIR_EXEC=$UNI_DIR_EXEC >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo "$UNI_DIR_EXEC/unistop force" >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo sleep 30 >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo "$UNI_DIR_EXEC/unims" -unregister >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo sleep 5 >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo IS_BATCH_ENV_LOADED=N >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo sleep 5 >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo "$UNI_DIR_EXEC/unims" -register -mshost $mshost -msport $msport -label $label -tags $tags -login $login -pwd $pwd >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo sleep 5 >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo "$UNI_DIR_EXEC/unisetvar" UVMS_REF $mshost:$msport >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo sleep 5 >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo "$UNI_DIR_EXEC/unistart" >> "$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh"
+echo "reregister script created successfully"
+# execute reregister script
+echo "executing reregister script."
+chmod 777 $UNI_DIR_NODEFILES/reregister_$NUMPROC.sh
+$UNI_DIR_NODEFILES/reregister_$NUMPROC.sh
+exit=0
