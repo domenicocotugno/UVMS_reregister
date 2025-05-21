@@ -1,0 +1,58 @@
+@ECHO OFF
+REM ###=========================================================================
+REM #@(#) OBJECT:             Unregister node from current UVMS and register to new UVMS
+REM #@(#) OBJET:              Desenregistrer un noeud de l'UVMS actuel pour le reenregistrer sur un nouvel UVMS
+REM #@(#)
+REM #@(#) VERSION:            1.2.0
+REM #@(#)
+REM #@(#) AUTHOR:             Tricise Professional Services (DCT)
+REM #@(#) AUTEUR
+REM #@(#)
+REM #@(#) CREATION DATE:      2022/05/18
+REM #@(#) DATE DE CREATION
+REM #@(#)
+REM #@(#) MODIFICATIONS: 
+REM #@(#)   0.0.0 -> 1.0.0:   2022/05/18 -- Domenico Cotugno -- Created
+REM #@(#)   1.0.0 -> 1.1.0:   2024/03/13 -- Domenico Cotugno -- Added NUMPROC variable to create unique scripts
+REM #@(#)   1.1.0 -> 1.1.1:   2024/04/08 -- Domenico Cotugno -- Added labels and tags to unims register
+REM #@(#)   1.1.1 -> 1.2.0:   2024/05/23 -- Domenico Cotugno -- Check UVMS network availability
+REM #@(#)
+REM #@(#) VALIDATIONS:
+REM #@(#)   1.1.1:			2024/04/09 -- Domenico Cotugno -- on-site with customer. Could use some checks and balances, like a verification that the remote mshost is accessible.
+REM #@(#)	1.2.0:			2024/06/20 -- Domenico Cotugno -- on-site with customer.
+REM ###=========================================================================
+
+REM Check target UVMS availability
+powershell -Command "try { $tcpConnection = New-Object System.Net.Sockets.TcpClient; $tcpConnection.Connect('%mshost%', %msport%); $tcpConnection.Close(); exit 0; } catch { exit 1; }"
+if %errorlevel%==0 (
+	echo Port %msport% on server %mshost% is open. Continuing...
+) else (
+	echo Port %msport% on server %mshost% is not open. Please check network routing and firewalls before attempting again.
+	exit /b 1
+)
+REM Create unregister / register script
+echo Creating reregister script
+echo echo on > "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo set mshost=%mshost% >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo set msport=%msport% >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo set login=%login% >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo set pwd=%pwd% >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo set label=%label% >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo set tags=%tags% >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo set uni_dir_exec=%uni_dir_exec% >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo CALL "%uni_dir_exec%\unistop.bat" >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo CALL "%uni_dir_exec%\uxsleep" 5 >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo CALL "%uni_dir_exec%\unims" -unregister >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo CALL "%uni_dir_exec%\uxsleep" 5 >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo set IS_BATCH_ENV_LOADED=N >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo CALL "%uni_dir_exec%\uxsleep" 5 >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo CALL "%uni_dir_exec%\unims" -register -mshost %mshost% -msport %msport% -label %label% -tags "%tags%" -login %login% -pwd %pwd% >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo CALL "%uni_dir_exec%\uxsleep" 5 >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo CALL "%uni_dir_exec%\unisetvar.exe" UVMS_REF %mshost%:%msport% >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo CALL "%uni_dir_exec%\uxsleep" 5 >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo CALL "%uni_dir_exec%\unistart" >> "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+echo reregister script created successfully
+REM execute reregister script
+echo executing reregister script. 
+CALL "%uni_dir_nodefiles%\reregister_%NUMPROC%.bat"
+set resexe=0
